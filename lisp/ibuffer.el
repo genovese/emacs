@@ -524,18 +524,18 @@ directory, like `default-directory'."
     (define-key map (kbd "/ n") 'ibuffer-filter-by-name)
     (define-key map (kbd "/ *") 'ibuffer-filter-by-starred-name)
     (define-key map (kbd "/ f") 'ibuffer-filter-by-filename)
-    (define-key map (kbd "/ F") 'ibuffer-filter-by-filename-base)
-    (define-key map (kbd "/ .") 'ibuffer-filter-by-filename-extension)
-    (define-key map (kbd "/ r") 'ibuffer-filter-by-filename-root)
-    (define-key map (kbd "/ /") 'ibuffer-filter-by-filename-directory)
+    (define-key map (kbd "/ b") 'ibuffer-filter-by-basename)
+    (define-key map (kbd "/ .") 'ibuffer-filter-by-file-extension)
+    (define-key map (kbd "/ /") 'ibuffer-filter-by-directory)
     (define-key map (kbd "/ <") 'ibuffer-filter-by-size-lt)
     (define-key map (kbd "/ >") 'ibuffer-filter-by-size-gt)
     (define-key map (kbd "/ i") 'ibuffer-filter-by-modified)
+    (define-key map (kbd "/ v") 'ibuffer-filter-by-visiting-file)
     (define-key map (kbd "/ c") 'ibuffer-filter-by-content)
     (define-key map (kbd "/ e") 'ibuffer-filter-by-predicate)
     (define-key map (kbd "/ TAB") 'ibuffer-filter-chosen-by-completion)
 
-    (define-key map (kbd "/ w") 'ibuffer-switch-to-saved-filters)
+    (define-key map (kbd "/ r") 'ibuffer-switch-to-saved-filters)
     (define-key map (kbd "/ a") 'ibuffer-add-saved-filters)
     (define-key map (kbd "/ x") 'ibuffer-delete-saved-filters)
     (define-key map (kbd "/ d") 'ibuffer-decompose-filter)
@@ -666,7 +666,7 @@ directory, like `default-directory'."
       '(menu-item "Add filter by a major mode in use..."
         ibuffer-filter-by-used-mode))
     (define-key-after map [menu-bar view filter filter-by-derived-mode]
-      '(menu-item "Add filter by derived mode..." 
+      '(menu-item "Add filter by derived mode..."
                   ibuffer-filter-by-derived-mode))
     (define-key-after map [menu-bar view filter filter-by-name]
       '(menu-item "Add filter by buffer name..." ibuffer-filter-by-name))
@@ -679,24 +679,19 @@ directory, like `default-directory'."
                   :help
                   (concat "For a buffer associated with file '/a/b/c.d', "
                           "list buffer if a given pattern matches '/a/b/c.d'")))
-    (define-key-after map [menu-bar view filter filter-by-filename-base]
+    (define-key-after map [menu-bar view filter filter-by-basename]
       '(menu-item "Add filter by file basename..."
-                  ibuffer-filter-by-filename-base
+                  ibuffer-filter-by-basename
                   :help (concat "For a buffer associated with file '/a/b/c.d', "
                                 "list buffer if a given pattern matches 'c.d'")))
-    (define-key-after map [menu-bar view filter filter-by-filename-extension]
-      '(menu-item "Add filter by filename extension..."
-                  ibuffer-filter-by-filename-extension
+    (define-key-after map [menu-bar view filter filter-by-file-extension]
+      '(menu-item "Add filter by file name extension..."
+                  ibuffer-filter-by-file-extension
                   :help (concat "For a buffer associated with file '/a/b/c.d', "
                                 "list buffer if a given pattern matches 'd'")))
-    (define-key-after map [menu-bar view filter filter-by-filename-root]
-      '(menu-item "Add filter by filename root..."
-                  ibuffer-filter-by-filename-root
-                  :help (concat "For a buffer associated with file '/a/b/c.d', "
-                                "list buffer if a given pattern matches 'c'")))
-    (define-key-after map [menu-bar view filter filter-by-filename-directory]
+    (define-key-after map [menu-bar view filter filter-by-directory]
       '(menu-item "Add filter by filename's directory..."
-                  ibuffer-filter-by-filename-directory
+                  ibuffer-filter-by-directory
                   :help
                   (concat "For a buffer associated with file '/a/b/c.d', "
                           "list buffer if a given pattern matches '/a/b'")))
@@ -708,6 +703,10 @@ directory, like `default-directory'."
     (define-key-after map [menu-bar view filter filter-by-modified]
       '(menu-item "Add filter by modified buffer..." ibuffer-filter-by-modified
                   :help "List buffers that are marked as modified"))
+    (define-key-after map [menu-bar view filter filter-by-visiting-file]
+      '(menu-item "Add filter by modified buffer..."
+                  ibuffer-filter-by-visiting-file
+                  :help "List buffers that are visiting files"))
     (define-key-after map [menu-bar view filter filter-by-content]
       '(menu-item "Add filter by content (regexp)..."
         ibuffer-filter-by-content))

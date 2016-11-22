@@ -42,7 +42,8 @@
 
 (eval-when-compile
   (require 'ibuf-macs)
-  (require 'cl-lib))
+  (require 'cl-lib)
+  (require 'subr-x))
 
 
 ;;; Utility functions
@@ -199,37 +200,37 @@ variable can be set directly from lisp code."
 (defvar ibuffer-old-saved-filters-warning
   (concat "Deprecated format detected for variable `ibuffer-saved-filters'.
 
-The format has been repaired and the variable modified accordingly. 
+The format has been repaired and the variable modified accordingly.
 You can save the current value through the customize system by
 either clicking or hitting return "
-            (make-text-button
-             "here" nil
-             'face '(:weight bold :inherit button)
-             'mouse-face '(:weight normal :background "gray50" :inherit button)
-             'follow-link t
-             'help-echo "Click or RET: save new value in customize"
-             'action (lambda (b)
-                       (if (not (fboundp 'customize-save-variable))
-                           (message "Customize not available; value not saved")
-                         (customize-save-variable 'ibuffer-saved-filters
-                                                  ibuffer-saved-filters)
-                         (message "Saved updated ibuffer-saved-filters."))))
-            ". See below for
+          (make-text-button
+           "here" nil
+           'face '(:weight bold :inherit button)
+           'mouse-face '(:weight normal :background "gray50" :inherit button)
+           'follow-link t
+           'help-echo "Click or RET: save new value in customize"
+           'action (lambda (b)
+                     (if (not (fboundp 'customize-save-variable))
+                         (message "Customize not available; value not saved")
+                       (customize-save-variable 'ibuffer-saved-filters
+                                                ibuffer-saved-filters)
+                       (message "Saved updated ibuffer-saved-filters."))))
+          ". See below for
 an explanation and alternative ways to save the repaired value.
 
-Explanation: For the list variable `ibuffer-saved-filters',               
+Explanation: For the list variable `ibuffer-saved-filters',
 elements of the form (STRING (FILTER-SPECS...)) are deprecated
 and should instead have the form (STRING FILTER-SPECS...), where
 each filter spec is a cons cell with a symbol in the car. See
-`ibuffer-saved-filters' for details. The repaired value fixes 
-this format without changing the meaning of the saved filters. 
+`ibuffer-saved-filters' for details. The repaired value fixes
+this format without changing the meaning of the saved filters.
 
 Alternative ways to save the repaired value:
 
-  1. Do M-x customize-variable and entering `ibuffer-saved-filters' 
-     when prompted. 
+  1. Do M-x customize-variable and entering `ibuffer-saved-filters'
+     when prompted.
 
-  2. Set the updated value manually by copying the 
+  2. Set the updated value manually by copying the
      following emacs-lisp form to your emacs init file.
 
 %s
@@ -243,6 +244,7 @@ deprecation warning is raised, with a button allowing persistent
 update. Any updated filters retain their meaning in the new
 format. See `ibuffer-update-saved-filters-format' and
 `ibuffer-saved-filters' for details of the old and new formats."
+  (interactive)
   (when (and (boundp 'ibuffer-saved-filters) ibuffer-saved-filters)
     (let ((fixed (ibuffer-update-saved-filters-format ibuffer-saved-filters)))
       (prog1
@@ -672,7 +674,7 @@ To evaluate a form without viewing the buffer, see `ibuffer-do-eval'."
 
 ;;;###autoload
 (defun ibuffer-included-in-filters-p (buf filters)
-  "Does the buffer BUF successfully pass all of the given FILTERS?
+  "Returns non-nil if buffer BUF passes all FILTERS.
 
 BUF is a lisp buffer object, and FILTERS is a list of filter
 specifications with the same structure as
@@ -700,8 +702,8 @@ specification, with the same structure as an element of the list
 `ibuffer-filtering-qualifiers'."
   (if (eq (car filter) 'not)
       (let ((inner (ibuffer-unary-operand filter)))
-        ;; ATTN: Allows (not (not ...)) etc. Is fixing this worthwhile?
-        (if (eq (car inner) 'not) 
+        ;; Allows (not (not ...)) etc, which may be overkill
+        (if (eq (car inner) 'not)
             (ibuffer-included-in-filter-p buf (ibuffer-unary-operand inner))
           (not (ibuffer-included-in-filter-p-1 buf inner))))
     (ibuffer-included-in-filter-p-1 buf filter)))
@@ -1033,17 +1035,15 @@ turned into separate filters, like [name: foo] and [mode: bar-mode]."
   (let ((lim (pop ibuffer-filtering-qualifiers)))
     (pcase (car lim)
       ((or 'or 'and)
-       (setq ibuffer-filtering-qualifiers (append
-                                           (cdr lim)
-                                           ibuffer-filtering-qualifiers)))
+       (setq ibuffer-filtering-qualifiers
+             (nconc (cdr lim) ibuffer-filtering-qualifiers)))
       (`saved
        (let ((data (assoc (cdr lim) ibuffer-saved-filters)))
          (unless data
            (ibuffer-filter-disable)
            (error "Unknown saved filter %s" (cdr lim)))
-         (setq ibuffer-filtering-qualifiers (append
-                                             (cdr data)
-                                             ibuffer-filtering-qualifiers))))
+         (setq ibuffer-filtering-qualifiers
+               (append (cdr data) ibuffer-filtering-qualifiers))))
       (`not
        (push (ibuffer-unary-operand lim) ibuffer-filtering-qualifiers))
       (_
@@ -1076,31 +1076,28 @@ turned into separate filters, like [name: foo] and [mode: bar-mode]."
 	  ibuffer-filtering-qualifiers))
   (ibuffer-update nil t))
 
+(defun ibuffer--or-and-filter (op decompose)
+  (if decompose
+      (if (eq op (caar ibuffer-filtering-qualifiers))
+          (ibuffer-decompose-filter)
+        (error "Top filter is not an %s" (upcase (symbol-name op))))
+    (when (< (length ibuffer-filtering-qualifiers) 2)
+      (error "Need two filters to %s" (upcase (symbol-name op))))
+    ;; If either filter is an op, eliminate unnecessary nesting.
+    (let ((first (pop ibuffer-filtering-qualifiers))
+          (second (pop ibuffer-filtering-qualifiers)))
+      (push (nconc (if (eq op (car first)) first (list op first))
+                   (if (eq op (car second)) (cdr second) (list second)))
+            ibuffer-filtering-qualifiers)))
+  (ibuffer-update nil t))
+
 ;;;###autoload
 (defun ibuffer-or-filter (&optional decompose)
   "Replace the top two filters in this buffer with their logical OR.
 If optional argument DECOMPOSE is non-nil, instead break the top OR
 filter into parts."
   (interactive "P")
-  (if decompose
-      (progn
-	(when (or (null ibuffer-filtering-qualifiers)
-		  (not (eq 'or (caar ibuffer-filtering-qualifiers))))
-	  (error "Top filter is not an OR"))
-	(let ((lim (pop ibuffer-filtering-qualifiers)))
-	  (setq ibuffer-filtering-qualifiers
-		(nconc (cdr lim) ibuffer-filtering-qualifiers))))
-    (when (< (length ibuffer-filtering-qualifiers) 2)
-      (error "Need two filters to OR"))
-    ;; If the second filter is an OR, just add to it.
-    (let ((first (pop ibuffer-filtering-qualifiers))
-	  (second (pop ibuffer-filtering-qualifiers)))
-      (if (eq 'or (car second))
-	  (push (nconc (list 'or first) (cdr second))
-		ibuffer-filtering-qualifiers)
-	(push (list 'or first second)
-	      ibuffer-filtering-qualifiers))))
-  (ibuffer-update nil t))
+  (ibuffer--or-and-filter 'or decompose))
 
 ;;;###autoload
 (defun ibuffer-and-filter (&optional decompose)
@@ -1108,25 +1105,7 @@ filter into parts."
 If optional argument DECOMPOSE is non-nil, instead break the top AND
 filter into parts."
   (interactive "P")
-  (if decompose
-      (progn
-        (when (or (null ibuffer-filtering-qualifiers)
-                  (not (eq 'and (caar ibuffer-filtering-qualifiers))))
-          (error "Top filter is not an AND"))
-        (let ((lim (pop ibuffer-filtering-qualifiers)))
-          (setq ibuffer-filtering-qualifiers
-                (nconc (cdr lim) ibuffer-filtering-qualifiers))))
-    (when (< (length ibuffer-filtering-qualifiers) 2)
-      (error "Need two filters to AND"))
-    ;; If the second filter is an AND, just add to it.
-    (let ((first (pop ibuffer-filtering-qualifiers))
-          (second (pop ibuffer-filtering-qualifiers)))
-      (if (eq 'and (car second))
-          (push (nconc (list 'and first) (cdr second))
-                ibuffer-filtering-qualifiers)
-        (push (list 'and first second)
-              ibuffer-filtering-qualifiers))))
-  (ibuffer-update nil t))
+  (ibuffer--or-and-filter 'and decompose))
 
 (defun ibuffer-maybe-save-stuff ()
   (when ibuffer-save-with-custom
@@ -1295,15 +1274,16 @@ currently used by buffers."
 
 ;;;###autoload (autoload 'ibuffer-filter-by-starred-name "ibuf-ext")
 (define-ibuffer-filter starred-name
-    "Limit current view to buffers with name beginning with *."
+    "Limit current view to buffers with name beginning and ending
+with *, along with an optional suffix of the form digits or
+<digits>."
   (:description "starred buffer name"
    :reader nil)
-  (string-match "\\`*" (buffer-name buf)))
+  (string-match "\\`\\*[^*]+\\*\\(?:<[[:digit:]]+>\\)?\\'" (buffer-name buf)))
 
-;; This should probably be called pathname but kept for backward compatibility
 ;;;###autoload (autoload 'ibuffer-filter-by-filename "ibuf-ext")
-(define-ibuffer-filter filename  
-  "Limit current view to buffers with full file pathname matching QUALIFIER.
+(define-ibuffer-filter filename
+    "Limit current view to buffers with full file pathname matching QUALIFIER.
 
 For example, for a buffer associated with file '/a/b/c.d', this
 matches against '/a/b/c.d'."
@@ -1313,8 +1293,8 @@ matches against '/a/b/c.d'."
     (string-match qualifier it)))
 
 ;; If filename above were renamed to pathname, this could be called filename.
-;;;###autoload (autoload 'ibuffer-filter-by-filename-base "ibuf-ext")
-(define-ibuffer-filter filename-base 
+;;;###autoload (autoload 'ibuffer-filter-by-basename "ibuf-ext")
+(define-ibuffer-filter basename
     "Limit current view to buffers with file basename matching QUALIFIER.
 
 For example, for a buffer associated with file '/a/b/c.d', this
@@ -1325,8 +1305,8 @@ matches against 'c.d'."
   (ibuffer-awhen (with-current-buffer buf (ibuffer-buffer-file-name))
     (string-match qualifier (file-name-nondirectory it))))
 
-;;;###autoload (autoload 'ibuffer-filter-by-filename-extension "ibuf-ext")
-(define-ibuffer-filter filename-extension
+;;;###autoload (autoload 'ibuffer-filter-by-file-extension "ibuf-ext")
+(define-ibuffer-filter file-extension
     "Limit current view to buffers with filename extension matching QUALIFIER.
 
 The separator character (typically `.') is not part of the
@@ -1338,29 +1318,19 @@ pattern. For example, for a buffer associated with file
   (ibuffer-awhen (with-current-buffer buf (ibuffer-buffer-file-name))
     (string-match qualifier (or (file-name-extension it) ""))))
 
-;;;###autoload (autoload 'ibuffer-filter-by-filename-root "ibuf-ext")
-(define-ibuffer-filter filename-root
-    "Limit current view to buffers with file basename matching QUALIFIER.
+;;;###autoload (autoload 'ibuffer-filter-by-directory "ibuf-ext")
+(define-ibuffer-filter directory
+    "Limit current view to buffers with directory matching QUALIFIER.
 
-The filename root is the part of the full pathname of the file without
-the directory or extension/suffix components. For example, for a buffer
-associated with file '/a/b/c.d', this matches against 'c'."
-  (:description "filename root"
-   :reader (read-from-minibuffer "Filter by filename root (regex): "))
-  (ibuffer-awhen (with-current-buffer buf (ibuffer-buffer-file-name))
-    (string-match qualifier (file-name-base it))))
-
-;;;###autoload (autoload 'ibuffer-filter-by-filename-directory "ibuf-ext")
-(define-ibuffer-filter filename-directory
-    "Limit current view to buffers with filename directory matching QUALIFIER.
-
-For example, for a buffer associated with file '/a/b/c.d', this
-matches against '/a/b'."
+For a buffer associated with file '/a/b/c.d', this matches
+against '/a/b'. For a buffer not associated with a file, this
+matches against the value of `default-directory' in that buffer."
   (:description "directory name"
    :reader (read-from-minibuffer "Filter by directory name (regex): "))
-  (ibuffer-awhen (with-current-buffer buf (ibuffer-buffer-file-name))
-    (let ((dirname (file-name-directory it)))
-      (when dirname (string-match qualifier dirname)))))
+  (ibuffer-aif (with-current-buffer buf (ibuffer-buffer-file-name))
+      (let ((dirname (file-name-directory it)))
+        (when dirname (string-match qualifier dirname)))
+    (when default-directory (string-match qualifier default-directory))))
 
 ;;;###autoload (autoload 'ibuffer-filter-by-size-gt  "ibuf-ext")
 (define-ibuffer-filter size-gt
@@ -1373,7 +1343,7 @@ matches against '/a/b'."
 
 ;;;###autoload (autoload 'ibuffer-filter-by-size-lt  "ibuf-ext")
 (define-ibuffer-filter size-lt
-   "Limit current view to buffers with size less than QUALIFIER."
+    "Limit current view to buffers with size less than QUALIFIER."
   (:description "size less than"
    :reader
    (string-to-number (read-from-minibuffer "Filter by size less than: ")))
@@ -1382,10 +1352,18 @@ matches against '/a/b'."
 
 ;;;###autoload (autoload 'ibuffer-filter-by-modified "ibuf-ext")
 (define-ibuffer-filter modified
-   "Limit current view to buffers that are marked as modified."
+    "Limit current view to buffers that are marked as modified."
   (:description "modified"
    :reader nil)
   (buffer-modified-p buf))
+
+;;;###autoload (autoload 'ibuffer-filter-by-visiting-file "ibuf-ext")
+(define-ibuffer-filter visiting-file
+    "Limit current view to buffers that are visiting a file.
+This includes buffers visiting a directory in dired."
+  (:description "visiting a file"
+   :reader nil)
+  (with-current-buffer buf (ibuffer-buffer-file-name)))
 
 ;;;###autoload (autoload 'ibuffer-filter-by-content "ibuf-ext")
 (define-ibuffer-filter content

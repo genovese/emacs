@@ -66,7 +66,7 @@
           "Create a file and buffer with designated properties.
         PREFIX is a string giving the beginning of the name, and ARGS-PLIST
         is a series of keyword-value pairs, with allowed keywords
-        :suffix STRING, :size NUMBER, :mode MODE-FUNC, :include-content STRING.  
+        :suffix STRING, :size NUMBER, :mode MODE-FUNC, :include-content STRING.
         Returns the created buffer."
           (let* ((suffix  (plist-get args-plist :suffix))
                  (size    (plist-get args-plist :size))
@@ -80,7 +80,7 @@
             buf)))
        (create-non-file-buffer
         (lambda (prefix &rest args-plist)
-          "Create a file and buffer with designated properties.
+          "Create a non-file and buffer with designated properties.
         PREFIX is a string giving the beginning of the name, and ARGS-PLIST
         is a series of keyword-value pairs, with allowed keywords
         :size NUMBER, :mode MODE-FUNC, :include-content STRING.
@@ -128,12 +128,12 @@
                    buf '((and (size-gt . 99)
                               (content . "ring to rule them all")
                               (mode . fundamental-mode)
-                              (filename-base . "\\`ibuf-test-1")))))
+                              (basename . "\\`ibuf-test-1")))))
           (should (ibuffer-included-in-filters-p
                    buf '((not (or (not (size-gt . 99))
                                   (not (content . "ring to rule them all"))
                                   (not (mode . fundamental-mode))
-                                  (not (filename-base . "\\`ibuf-test-1")))))))
+                                  (not (basename . "\\`ibuf-test-1")))))))
           (should (ibuffer-included-in-filters-p
                    buf '((and (or (size-gt . 99) (size-lt . 10))
                               (and (content . "ring.*all")
@@ -141,9 +141,9 @@
                                    (content . "them all")
                                    (content . "One"))
                               (not (mode . text-mode))
-                              (filename-base . "\\`ibuf-test-1"))))))
+                              (basename . "\\`ibuf-test-1"))))))
       (funcall clean-up)))
-  
+
   (ert-deftest ibuffer-filter-inclusion-2 ()
     "Tests inclusion of basic filters in combination on a single buffer."
     (skip-unless (featurep 'ibuf-ext))
@@ -152,7 +152,6 @@
                (funcall create-file-buffer "ibuf-test-2" :size 200
                         :mode #'text-mode
                         :include-content "and in the darkness find them\n")))
-          (message "--> %s" buf)
           (should (ibuffer-included-in-filters-p buf '((size-gt . 199))))
           (should (ibuffer-included-in-filters-p buf '((size-lt . 201))))
           (should (ibuffer-included-in-filters-p buf '((not size-gt . 200))))
@@ -177,8 +176,7 @@
                              (derived-mode . emacs-lisp-mode)))))
           (should-not (ibuffer-included-in-filters-p
                        buf '((or (size-gt . 200) (content . "rule them all")
-                                 (derived-mode . emacs-lisp-mode)))))
-          (message "--> %s" buf))
+                                 (derived-mode . emacs-lisp-mode))))))
       (funcall clean-up)))
 
   (ert-deftest ibuffer-filter-inclusion-3 ()
@@ -196,23 +194,19 @@
                (dirA (with-current-buffer bufA default-directory))
                (dirB (with-current-buffer bufB default-directory)))
           (should (ibuffer-included-in-filters-p
-                   bufA '((filename-base . "ibuf-test-3"))))
+                   bufA '((basename . "ibuf-test-3"))))
           (should (ibuffer-included-in-filters-p
-                   bufA '((filename-root . "ibuf-test-3"))))
+                   bufA '((basename . "test-3\\.a"))))
           (should (ibuffer-included-in-filters-p
-                   bufA '((filename-base . "test-3\\.a"))))
+                   bufA '((file-extension . "a"))))
           (should (ibuffer-included-in-filters-p
-                   bufA '((filename-extension . "a"))))
-          (should (ibuffer-included-in-filters-p
-                   bufA (list (cons 'filename-directory dirA))))
+                   bufA (list (cons 'directory dirA))))
           (should-not (ibuffer-included-in-filters-p
-                       bufB '((filename-base . "ibuf-test-3"))))
+                       bufB '((basename . "ibuf-test-3"))))
           (should-not (ibuffer-included-in-filters-p
-                       bufB '((filename-root . "ibuf-test-3"))))
-          (should-not (ibuffer-included-in-filters-p
-                       bufB '((filename-extension . "b"))))
-          (should-not (ibuffer-included-in-filters-p
-                       bufB (list (cons 'filename-directory dirB))))
+                       bufB '((file-extension . "b"))))
+          (should (ibuffer-included-in-filters-p 
+                   bufB (list (cons 'directory dirB))))
           (should (ibuffer-included-in-filters-p
                    bufA '((name . "ibuf-test-3"))))
           (should (ibuffer-included-in-filters-p
@@ -228,7 +222,7 @@
                         :mode #'emacs-lisp-mode :suffix ".el"
                         :include-content "(message \"--%s--\" 'emacs-rocks)\n")))
           (should (ibuffer-included-in-filters-p
-                   buf '((filename-extension . "el"))))
+                   buf '((file-extension . "el"))))
           (should (ibuffer-included-in-filters-p
                    buf '((derived-mode . prog-mode))))
           (should (ibuffer-included-in-filters-p
@@ -240,15 +234,15 @@
           (with-current-buffer buf (set-buffer-modified-p nil))
           (should (ibuffer-included-in-filters-p buf '((not modified))))
           (should (ibuffer-included-in-filters-p
-                   buf '((and (filename-extension . "el")
+                   buf '((and (file-extension . "el")
                               (derived-mode . prog-mode)
                               (not modified)))))
           (should (ibuffer-included-in-filters-p
-                   buf '((or (filename-extension . "tex")
+                   buf '((or (file-extension . "tex")
                              (derived-mode . prog-mode)
                              (modified)))))
           (should (ibuffer-included-in-filters-p
-                   buf '((filename-extension . "el")
+                   buf '((file-extension . "el")
                          (derived-mode . prog-mode)
                          (not modified)))))
       (funcall clean-up)))
@@ -259,11 +253,11 @@
     (unwind-protect
         (let ((buf
                (funcall create-non-file-buffer "ibuf-test-5.el"
-                        :mode #'emacs-lisp-mode 
+                        :mode #'emacs-lisp-mode
                         :include-content
                         "(message \"--%s--\" \"It really does!\")\n")))
           (should-not (ibuffer-included-in-filters-p
-                       buf '((filename-extension . "el"))))
+                       buf '((file-extension . "el"))))
           (should (ibuffer-included-in-filters-p
                    buf '((size-gt . 18))))
           (should (ibuffer-included-in-filters-p
@@ -334,17 +328,57 @@
       (funcall clean-up)))
 
   (ert-deftest ibuffer-filter-inclusion-8 ()
-    "Tests inclusion with various filters on a single buffer."
+    "Tests inclusion with various filters."
     (skip-unless (featurep 'ibuf-ext))
     (unwind-protect
-        (let ((buf
-               (funcall create-non-file-buffer "ibuf-test-8"
-                        :mode #'artist-mode)))
+        (let ((bufA
+               (funcall create-non-file-buffer "ibuf-test-8a"
+                        :mode #'artist-mode))
+              (bufB (funcall create-non-file-buffer "*ibuf-test-8b*" :size 32))
+              (bufC (funcall create-file-buffer "ibuf-test8c" :suffix "*"
+                             :size 64))
+              (bufD (funcall create-file-buffer "*ibuf-test8d" :size 128))
+              (bufE (funcall create-file-buffer "*ibuf-test8e" :suffix "*<2>"
+                             :size 16))
+              (bufF (and (funcall create-non-file-buffer "*ibuf-test8f*")
+                         (funcall create-non-file-buffer "*ibuf-test8f*"
+                                  :size 8))))
+          (with-current-buffer bufA (set-buffer-modified-p t))
           (should (ibuffer-included-in-filters-p
-                   buf '((and (not (starred-name))
-                              (name . "test-8")
-                              (not (size-gt . 100))
-                              (mode . picture-mode))))))
+                   bufA '((and (not starred-name)
+                               (modified)
+                               (name . "test-8")
+                               (not (size-gt . 100))
+                               (mode . picture-mode)))))
+          (with-current-buffer bufA (set-buffer-modified-p nil))
+          (should-not (ibuffer-included-in-filters-p
+                       bufA '((or (starred-name) (visiting-file) (modified)))))
+          (should (ibuffer-included-in-filters-p
+                   bufB '((and (starred-name)
+                               (name . "test.*8b")
+                               (size-gt . 31)
+                               (not visiting-file)))))
+          (should (ibuffer-included-in-filters-p
+                   bufC '((and (not (starred-name))
+                               (visiting-file)
+                               (name . "8c[^*]*\\*")
+                               (size-lt . 65)))))
+          (should (ibuffer-included-in-filters-p
+                   bufD '((and (not (starred-name))
+                               (visiting-file)
+                               (name . "\\`\\*.*test8d")
+                               (size-lt . 129)
+                               (size-gt . 127)))))
+          (should (ibuffer-included-in-filters-p
+                   bufE '((and (starred-name)
+                               (visiting-file)
+                               (name . "8e.*?\\*<[[:digit:]]+>")
+                               (size-gt . 10)))))
+          (should (ibuffer-included-in-filters-p
+                   bufF '((and (starred-name)
+                               (not (visiting-file))
+                               (name . "8f\\*<[[:digit:]]>")
+                               (size-lt . 10))))))
       (funcall clean-up))))
 
 ;; Test Filter Combination and Decomposition
@@ -371,7 +405,7 @@
        (clean-up
         (lambda ()
           "Restore all emacs state modified during the tests"
-          (when ibuffer-to-kill         ; created ibuffer 
+          (when ibuffer-to-kill         ; created ibuffer
             (with-current-buffer ibuffer-to-kill
               (set-buffer-modified-p nil)
               (bury-buffer))
@@ -438,7 +472,8 @@
           (with-current-buffer ibuf
             (let ((ibuffer-filtering-qualifiers nil)
                   (ibuffer-filter-groups nil)
-                  (filters [(size-gt . 100) (not (starred-name))]))
+                  (filters [(size-gt . 100) (not (starred-name))
+                            (filename . "A") (mode . text-mode)]))
               (should-error (ibuffer-and-filter) :type 'error)
               (progn
                 (push (aref filters 1) ibuffer-filtering-qualifiers)
@@ -455,9 +490,57 @@
                                     (pop ibuffer-filtering-qualifiers))
                              (equal (aref filters 1)
                                     (pop ibuffer-filtering-qualifiers))
-                             (null ibuffer-filtering-qualifiers)))))))
+                             (null ibuffer-filtering-qualifiers))))
+              (should (progn
+                        (push (list 'and (aref filters 2) (aref filters 3))
+                              ibuffer-filtering-qualifiers)
+                        (push (list 'and (aref filters 0) (aref filters 1))
+                              ibuffer-filtering-qualifiers)
+                        (ibuffer-and-filter)
+                        (and (equal (list 'and (aref filters 0) (aref filters 1)
+                                          (aref filters 2) (aref filters 3))
+                                    (car ibuffer-filtering-qualifiers))
+                             (null (cdr ibuffer-filtering-qualifiers)))))
+              (pop ibuffer-filtering-qualifiers)
+              (should (progn
+                        (push (list 'or (aref filters 2) (aref filters 3))
+                              ibuffer-filtering-qualifiers)
+                        (push (list 'and (aref filters 0) (aref filters 1))
+                              ibuffer-filtering-qualifiers)
+                        (ibuffer-and-filter)
+                        (and (equal (list 'and (aref filters 0) (aref filters 1)
+                                          (list 'or (aref filters 2)
+                                                (aref filters 3)))
+                                    (car ibuffer-filtering-qualifiers))
+                             (null (cdr ibuffer-filtering-qualifiers)))))
+              (pop ibuffer-filtering-qualifiers)
+              (should (progn
+                        (push (list 'and (aref filters 2) (aref filters 3))
+                              ibuffer-filtering-qualifiers)
+                        (push (list 'or (aref filters 0) (aref filters 1))
+                              ibuffer-filtering-qualifiers)
+                        (ibuffer-and-filter)
+                        (and (equal (list 'and (list 'or (aref filters 0)
+                                                    (aref filters 1))
+                                          (aref filters 2) (aref filters 3))
+                                    (car ibuffer-filtering-qualifiers))
+                             (null (cdr ibuffer-filtering-qualifiers)))))
+              (pop ibuffer-filtering-qualifiers)
+              (should (progn
+                        (push (list 'or (aref filters 2) (aref filters 3))
+                              ibuffer-filtering-qualifiers)
+                        (push (list 'or (aref filters 0) (aref filters 1))
+                              ibuffer-filtering-qualifiers)
+                        (ibuffer-and-filter)
+                        (and (equal (list 'and
+                                          (list 'or (aref filters 0)
+                                                (aref filters 1))
+                                          (list 'or (aref filters 2)
+                                                (aref filters 3)))
+                                    (car ibuffer-filtering-qualifiers))
+                             (null (cdr ibuffer-filtering-qualifiers))))))))
       (funcall clean-up)))
-  
+
   (ert-deftest ibuffer-or-filter ()
     "Tests `ibuffer-or-filter' in an Ibuffer buffer."
     (skip-unless (featurep 'ibuf-ext))
@@ -466,7 +549,8 @@
           (with-current-buffer ibuf
             (let ((ibuffer-filtering-qualifiers nil)
                   (ibuffer-filter-groups nil)
-                  (filters [(size-gt . 100) (not (starred-name))]))
+                  (filters [(size-gt . 100) (not (starred-name))
+                            (filename . "A") (mode . text-mode)]))
               (should-error (ibuffer-or-filter) :type 'error)
               (progn
                 (push (aref filters 1) ibuffer-filtering-qualifiers)
@@ -483,7 +567,55 @@
                                     (pop ibuffer-filtering-qualifiers))
                              (equal (aref filters 1)
                                     (pop ibuffer-filtering-qualifiers))
-                             (null ibuffer-filtering-qualifiers)))))))
+                             (null ibuffer-filtering-qualifiers))))
+              (should (progn
+                        (push (list 'or (aref filters 2) (aref filters 3))
+                              ibuffer-filtering-qualifiers)
+                        (push (list 'or (aref filters 0) (aref filters 1))
+                              ibuffer-filtering-qualifiers)
+                        (ibuffer-or-filter)
+                        (and (equal (list 'or (aref filters 0) (aref filters 1)
+                                          (aref filters 2) (aref filters 3))
+                                    (car ibuffer-filtering-qualifiers))
+                             (null (cdr ibuffer-filtering-qualifiers)))))
+              (pop ibuffer-filtering-qualifiers)
+              (should (progn
+                        (push (list 'and (aref filters 2) (aref filters 3))
+                              ibuffer-filtering-qualifiers)
+                        (push (list 'or (aref filters 0) (aref filters 1))
+                              ibuffer-filtering-qualifiers)
+                        (ibuffer-or-filter)
+                        (and (equal (list 'or (aref filters 0) (aref filters 1)
+                                          (list 'and (aref filters 2)
+                                                (aref filters 3)))
+                                    (car ibuffer-filtering-qualifiers))
+                             (null (cdr ibuffer-filtering-qualifiers)))))
+              (pop ibuffer-filtering-qualifiers)
+              (should (progn
+                        (push (list 'or (aref filters 2) (aref filters 3))
+                              ibuffer-filtering-qualifiers)
+                        (push (list 'and (aref filters 0) (aref filters 1))
+                              ibuffer-filtering-qualifiers)
+                        (ibuffer-or-filter)
+                        (and (equal (list 'or (list 'and (aref filters 0)
+                                                    (aref filters 1))
+                                          (aref filters 2) (aref filters 3))
+                                    (car ibuffer-filtering-qualifiers))
+                             (null (cdr ibuffer-filtering-qualifiers)))))
+              (pop ibuffer-filtering-qualifiers)
+              (should (progn
+                        (push (list 'and (aref filters 2) (aref filters 3))
+                              ibuffer-filtering-qualifiers)
+                        (push (list 'and (aref filters 0) (aref filters 1))
+                              ibuffer-filtering-qualifiers)
+                        (ibuffer-or-filter)
+                        (and (equal (list 'or
+                                          (list 'and (aref filters 0)
+                                                (aref filters 1))
+                                          (list 'and (aref filters 2)
+                                                (aref filters 3)))
+                                    (car ibuffer-filtering-qualifiers))
+                             (null (cdr ibuffer-filtering-qualifiers))))))))
       (funcall clean-up))))
 
 (ert-deftest ibuffer-save-filters ()
@@ -494,14 +626,14 @@
         (test1 '((mode . org-mode)
                  (or (size-gt . 10000)
                      (and (not (starred-name))
-                          (filename-directory . "\<org\>")))))
-        (test2 '((or (mode . emacs-lisp-mode) (filename-extension . "elc?")
+                          (directory . "\<org\>")))))
+        (test2 '((or (mode . emacs-lisp-mode) (file-extension . "elc?")
                      (and (starred-name) (name . "elisp"))
                      (mode . lisp-interaction-mode))))
         (test3 '((size-lt . 100) (derived-mode . prog-mode)
-                 (or (filename-root . "scratch")
-                     (filename-root . "bonz")
-                     (filename-root . "temp")))))
+                 (or (filename . "scratch")
+                     (filename . "bonz")
+                     (filename . "temp")))))
     (ibuffer-save-filters "test1" test1)
     (should (equal (car ibuffer-saved-filters) (cons "test1" test1)))
     (ibuffer-save-filters "test2" test2)
@@ -523,11 +655,11 @@
         (test3 '(derived-mode . prog-mode))
         (test4 '(or (size-gt . 10000)
                     (and (not (starred-name))
-                         (filename-directory . "\\<org\\>"))))
-        (test5 '(or (filename-root . "scratch")
-                    (filename-root . "bonz")
-                    (filename-root . "temp")))
-        (test6 '(or (mode . emacs-lisp-mode) (filename-extension . "elc?")
+                         (directory . "\\<org\\>"))))
+        (test5 '(or (filename . "scratch")
+                    (filename . "bonz")
+                    (filename . "temp")))
+        (test6 '(or (mode . emacs-lisp-mode) (file-extension . "elc?")
                     (and (starred-name) (name . "elisp"))
                     (mode . lisp-interaction-mode)))
         (description (lambda (q)
@@ -554,21 +686,21 @@
                                                                 'starred-name)
                                                        ": " "nil"))
                                      (funcall tag
-                                              (funcall description 'filename-directory)
+                                              (funcall description 'directory)
                                               ": " "\\<org\\>")))))
     (should (equal (ibuffer-format-qualifier test5)
                    (funcall tag "OR"
-                            (funcall tag (funcall description 'filename-root)
+                            (funcall tag (funcall description 'filename)
                                      ": "  "scratch")
-                            (funcall tag (funcall description 'filename-root)
+                            (funcall tag (funcall description 'filename)
                                      ": " "bonz")
-                            (funcall tag (funcall description 'filename-root)
+                            (funcall tag (funcall description 'filename)
                                      ": " "temp"))))
     (should (equal (ibuffer-format-qualifier test6)
                    (funcall tag "OR"
                             (funcall tag (funcall description 'mode)
                                      ": " "emacs-lisp-mode")
-                            (funcall tag (funcall description 'filename-extension)
+                            (funcall tag (funcall description 'file-extension)
                                      ": " "elc?")
                             (funcall tag "AND"
                                      (funcall tag
