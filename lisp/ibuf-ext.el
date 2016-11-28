@@ -120,28 +120,32 @@ Buffers whose major mode is in this list, are not searched."
 (defvar ibuffer-auto-buffers-changed nil)
 
 (defcustom ibuffer-saved-filters '(("gnus"
-				    ((or (mode . message-mode)
-					 (mode . mail-mode)
-					 (mode . gnus-group-mode)
-					 (mode . gnus-summary-mode)
-					 (mode . gnus-article-mode))))
-				   ("programming"
-				    ((or (mode . emacs-lisp-mode)
-					 (mode . cperl-mode)
-					 (mode . c-mode)
-					 (mode . java-mode)
-					 (mode . idl-mode)
-					 (mode . lisp-mode)))))
+                                    (or (mode . message-mode)
+                                        (mode . mail-mode)
+                                        (mode . gnus-group-mode)
+                                        (mode . gnus-summary-mode)
+                                        (mode . gnus-article-mode)))
+                                   ("programming"
+                                    (or (mode . emacs-lisp-mode)
+                                        (mode . cperl-mode)
+                                        (mode . c-mode)
+                                        (mode . java-mode)
+                                        (mode . idl-mode)
+                                        (mode . lisp-mode))))
 
-  "An alist of filter qualifiers to switch between.
+  "An alist mapping saved filter names to filter specifications.
 
-This variable should look like ((\"STRING\" QUALIFIERS)
-                                (\"STRING\" QUALIFIERS) ...), where
-QUALIFIERS is a list of the same form as
-`ibuffer-filtering-qualifiers'.
-See also the variables `ibuffer-filtering-qualifiers',
-`ibuffer-filtering-alist', and the functions
-`ibuffer-switch-to-saved-filters', `ibuffer-save-filters'."
+Each element should look like (\"NAME\" . FILTER-LIST), where
+FILTER-LIST has the same structure as the variable
+`ibuffer-filtering-qualifiers', which see. The filters defined
+here are joined with an implicit logical `and' and associated
+with NAME. The combined specification can be used by name in
+other filter specifications via the `saved' qualifier (again, see
+`ibuffer-filtering-qualifiers'). They can also be switched to by
+name (see the functions `ibuffer-switch-to-saved-filters' and
+`ibuffer-save-filters'). The variable `ibuffer-save-with-custom'
+affects how this information is saved for future sessions. This
+variable can be set directly from lisp code."
   :type '(repeat sexp)
   :group 'ibuffer)
 
@@ -535,13 +539,11 @@ To evaluate a form without viewing the buffer, see `ibuffer-do-eval'."
 			   (ibuffer-included-in-filter-p buf x))
 		       (cdr filter))))
       (`saved
-       (let ((data
-	      (assoc (cdr filter)
-		     ibuffer-saved-filters)))
+       (let ((data (assoc (cdr filter) ibuffer-saved-filters)))
 	 (unless data
 	   (ibuffer-filter-disable t)
 	   (error "Unknown saved filter %s" (cdr filter)))
-	 (ibuffer-included-in-filters-p buf (cadr data))))
+	 (ibuffer-included-in-filters-p buf (cdr data))))
       (_
        (pcase-let ((`(,_type ,_desc ,func)
                     (assq (car filter) ibuffer-filtering-alist)))
@@ -849,15 +851,12 @@ turned into two separate filters [name: foo] and [mode: bar-mode]."
 					  (cdr lim)
 					  ibuffer-filtering-qualifiers)))
       (`saved
-       (let ((data
-	      (assoc (cdr lim)
-		     ibuffer-saved-filters)))
+       (let ((data (assoc (cdr lim) ibuffer-saved-filters)))
 	 (unless data
 	   (ibuffer-filter-disable)
 	   (error "Unknown saved filter %s" (cdr lim)))
-	 (setq ibuffer-filtering-qualifiers (append
-					    (cadr data)
-					    ibuffer-filtering-qualifiers))))
+	 (setq ibuffer-filtering-qualifiers
+               (append (cdr data) ibuffer-filtering-qualifiers))))
       (`not
        (push (cdr lim)
 	     ibuffer-filtering-qualifiers))
@@ -935,8 +934,8 @@ Interactively, prompt for NAME, and use the current filters."
       (read-from-minibuffer "Save current filters as: ")
       ibuffer-filtering-qualifiers)))
   (ibuffer-aif (assoc name ibuffer-saved-filters)
-      (setcdr it (list filters))
-    (push (list name filters) ibuffer-saved-filters))
+      (setcdr it filters)
+    (push (cons name filters) ibuffer-saved-filters))
   (ibuffer-maybe-save-stuff))
 
 ;;;###autoload
