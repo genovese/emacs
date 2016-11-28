@@ -935,7 +935,7 @@ Interactively, prompt for NAME, and use the current filters."
       (read-from-minibuffer "Save current filters as: ")
       ibuffer-filtering-qualifiers)))
   (ibuffer-aif (assoc name ibuffer-saved-filters)
-      (setcdr it filters)
+      (setcdr it (list filters))
     (push (list name filters) ibuffer-saved-filters))
   (ibuffer-maybe-save-stuff))
 
