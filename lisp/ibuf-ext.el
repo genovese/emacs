@@ -119,6 +119,26 @@ Buffers whose major mode is in this list, are not searched."
 
 (defvar ibuffer-auto-buffers-changed nil)
 
+(defun ibuffer-update-saved-filters-format (filters)
+  "Transforms alist from old to new `ibuffer-saved-filters' format.
+
+Specifically, converts old-format alist with values of the
+form (STRING (FILTER-SPECS...)) to alist with values of the
+form (STRING FILTER-SPECS...), where each filter spec should be a
+cons cell with a symbol in the car. Any elements in the latter
+form are kept as is.
+
+Returns (OLD-FORMAT-DETECTED? . UPDATED-SAVED-FILTERS-LIST)."
+  (when filters
+    (let* ((old-format-detected nil)
+           (fix-filter (lambda (filter-spec)
+                         (if (symbolp (car (cadr filter-spec)))
+                             filter-spec
+                           (setq old-format-detected t) ; side-effect
+                           (cons (car filter-spec) (cadr filter-spec)))))
+           (fixed (mapcar fix-filter filters)))
+      (cons old-format-detected fixed))))
+
 (defcustom ibuffer-saved-filters '(("gnus"
                                     (or (mode . message-mode)
                                         (mode . mail-mode)
@@ -146,8 +166,73 @@ name (see the functions `ibuffer-switch-to-saved-filters' and
 `ibuffer-save-filters'). The variable `ibuffer-save-with-custom'
 affects how this information is saved for future sessions. This
 variable can be set directly from lisp code."
-  :type '(repeat sexp)
+  :type '(alist :key-type (string :tag "Filter name")
+                :value-type (repeat :tag "Filter specification" sexp))
+  :set (lambda (symbol value)
+         ;; Just set-default but update legacy old-style format
+         (set-default symbol (cdr (ibuffer-update-saved-filters-format value))))
   :group 'ibuffer)
+
+(defvar ibuffer-old-saved-filters-warning
+  (concat "Deprecated format detected for variable `ibuffer-saved-filters'.
+
+The format has been repaired and the variable modified accordingly.
+You can save the current value through the customize system by
+either clicking or hitting return "
+          (make-text-button
+           "here" nil
+           'face '(:weight bold :inherit button)
+           'mouse-face '(:weight normal :background "gray50" :inherit button)
+           'follow-link t
+           'help-echo "Click or RET: save new value in customize"
+           'action (lambda (b)
+                     (if (not (fboundp 'customize-save-variable))
+                         (message "Customize not available; value not saved")
+                       (customize-save-variable 'ibuffer-saved-filters
+                                                ibuffer-saved-filters)
+                       (message "Saved updated ibuffer-saved-filters."))))
+          ". See below for
+an explanation and alternative ways to save the repaired value.
+
+Explanation: For the list variable `ibuffer-saved-filters',
+elements of the form (STRING (FILTER-SPECS...)) are deprecated
+and should instead have the form (STRING FILTER-SPECS...), where
+each filter spec is a cons cell with a symbol in the car. See
+`ibuffer-saved-filters' for details. The repaired value fixes
+this format without changing the meaning of the saved filters.
+
+Alternative ways to save the repaired value:
+
+  1. Do M-x customize-variable and entering `ibuffer-saved-filters'
+     when prompted.
+
+  2. Set the updated value manually by copying the
+     following emacs-lisp form to your emacs init file.
+
+%s
+"))
+
+(defun ibuffer-repair-saved-filters ()
+  "Updates `ibuffer-saved-filters' to its new-style format, if needed.
+
+If this list has any elements of the old-style format, a
+deprecation warning is raised, with a button allowing persistent
+update. Any updated filters retain their meaning in the new
+format. See `ibuffer-update-saved-filters-format' and
+`ibuffer-saved-filters' for details of the old and new formats."
+  (interactive)
+  (when (and (boundp 'ibuffer-saved-filters) ibuffer-saved-filters)
+    (let ((fixed (ibuffer-update-saved-filters-format ibuffer-saved-filters)))
+      (prog1
+          (setq ibuffer-saved-filters (cdr fixed))
+        (when-let (old-format-detected? (car fixed))
+          (let ((warning-series t)
+                (updated-form
+                 (with-output-to-string
+                   (pp `(setq ibuffer-saved-filters ',ibuffer-saved-filters)))))
+            (display-warning
+             'ibuffer
+             (format ibuffer-old-saved-filters-warning updated-form))))))))
 
 (defvar ibuffer-filtering-qualifiers nil
   "A list like (SYMBOL . QUALIFIER) which filters the current buffer list.
