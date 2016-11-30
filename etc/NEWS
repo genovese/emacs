@@ -304,45 +304,22 @@ bound to 'Buffer-menu-unmark-all-buffers'.
 ** Ibuffer
 
 ---
-*** A new filter command 'ibuffer-filter-by-basename'
-(with qualifier 'basename' in filter data) matches in a
-file buffer against the file base name (analogous to what
-'file-name-nondirectory' returns); bound to '/ b'.
+*** New filter commands `ibuffer-filter-by-basename',
+`ibuffer-filter-by-file-extension', `ibuffer-filter-by-directory',
+`ibuffer-filter-by-starred-name', `ibuffer-filter-by-modified'
+and `ibuffer-filter-by-visiting-file'; bound respectively
+to '/b', '/.', '//', '/*', '/i' and '/v'.
 
 ---
-*** A new filter command 'ibuffer-filter-by-file-extension'
-(with qualifier 'file-extension' in filter data) matches
-against the file name's extension without the separator
-in a file buffer; bound to '/ .'.
-
---- 
-*** A new filter command 'ibuffer-filter-by-directory'
-(with qualifier 'directory' in filter data) matches
-against the filename's directory component in a file
-buffer and against 'default-directory' otherwise;
-bound to '/ /'.
+*** Two new commands 'ibuffer-filter-chosen-by-completion'
+and `ibuffer-and-filter'; bound to '/ TAB' and '/&'
+respectively.
 
 ---
-*** A new filter command 'ibuffer-filter-by-starred-name'
-(with qualifier 'starred-name' in filter data) matches
-buffers whose names begin and end with *, along with an
-optional suffix of the form digits or <digits>;
-bound to '/ *'.
-
----
-*** A new filter command 'ibuffer-filter-by-modified'
-(with qualifier 'modified' in filter data) matches buffers
-that are marked modified; bound to '/ i'.
-
----
-*** A new filter command 'ibuffer-filter-by-visiting-file'
-(with tag 'visiting-file' in filter data) matches buffers
-that are visiting files; bound to '/ v'.
-
----
-*** A new command 'ibuffer-filter-chosen-by-completion' to
-select and apply a filter interactively by completion on
-the filter description; bound to '/ TAB'.
+*** The key binding for `ibuffer-filter-disable' has being changed
+to '/DEL'; the commands `ibuffer-pop-filter', `ibuffer-pop-filter-group'
+and `ibuffer-or-filter' have the alternative bindings '/<up>', '/S-<up>'
+and '/|'.
 
 ---
 *** The data format specifying filters has been extended
@@ -352,42 +329,6 @@ filter. This is useful for constructing complex filters
 and filter groups, especially when doing so manually. See
 documentation for 'ibuffer-filtering-qualifiers' for full
 details.
-
----
-*** A new command 'ibuffer-and-filter' that replaces the
-top two filters on the filter stack with their logical
-'and' as a single filter; bound to '/ &'.
-
----
-*** The command 'ibuffer-or-filter' is bound to '/ |' as
-well as the original binding '/ o'.
-
----
-*** The command 'ibuffer-filter-disable' is now bound
-to '/ DEL' instead of '/ /'.
-
----
-*** The commands 'ibuffer-pop-filter' and
-'ibuffer-pop-filter-group' now have alternative key
-bindings '/ <up>' and '/ S-<up>', respectively.  These
-commands continue to be bound to '/ p' and '/ P',
-respectively, as well.
-
----
-*** The command 'ibuffer-exchange-filter' continues
-to be bound to '/ t' but is no longer bound to '/ TAB'.
-
----
-*** The format of 'ibuffer-saved-filters' has been
-simplified slightly, removing an unnecessary level of
-parentheses around the filter list. See documentation for
-the variable 'ibuffer-saved-filters' and the function
-'ibuffer-update-saved-filters-format' for details of the
-new and old formats. Filters saved through the customize
-mechanism (the default) are updated automatically; those
-who set the saved filters manually can run the new command
-'ibuffer-repair-saved-filters' to check the variable's
-format and easily update it if necessary.
 
 ---
 *** A new command 'ibuffer-copy-buffername-as-kill'; bound
